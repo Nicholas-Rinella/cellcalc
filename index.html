@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cell Culture Seeding & Dilution Calculator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 2rem 1rem; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 680px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: #fff; }
+    p.subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .input-group { margin-bottom: 1.25rem; }
+    label { display: block; font-size: 0.825rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.4rem; }
+    
+    .sci-input { display: flex; align-items: center; gap: 0.5rem; }
+    input[type="number"] {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #fff;
+      padding: 0.6rem 0.8rem;
+      font-size: 1rem;
+      outline: none;
+    }
+    input[type="number"]:focus { border-color: var(--accent); }
+    .sci-notation { color: var(--text-muted); font-size: 0.9rem; white-space: nowrap; }
+
+    .presets { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .preset-btn {
+      background: #334155;
+      border: none;
+      color: #e2e8f0;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .preset-btn:hover { background: var(--accent-hover); color: #fff; }
+
+    .results-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+    .result-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem; }
+    .result-row:last-child { margin-bottom: 0; }
+    .result-label { font-size: 0.9rem; color: var(--text-muted); }
+    .result-val { font-size: 1.25rem; font-weight: 700; color: var(--accent); font-feature-settings: "tnum"; }
+
+    .status-msg { margin-top: 1rem; font-size: 0.85rem; padding: 0.6rem 0.8rem; border-radius: 6px; display: none; }
+    .status-msg.warn { background: rgba(245, 158, 11, 0.15); color: var(--warn); border: 1px solid var(--warn); display: block; }
+    .status-msg.error { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); display: block; }
+
+    .recipe {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px dashed var(--border);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Cell Seeding & Dilution Calculator</h1>
+  <p class="subtitle">Quick bench calculations for suspensions, transfers, and vessel prep.</p>
+
+  <label>Standard Vessel Presets</label>
+  <div class="presets">
+    <button class="preset-btn" onclick="applyPreset(1e5, 2.0)">6-Well (1e5 / 2mL)</button>
+    <button class="preset-btn" onclick="applyPreset(7e5, 5.0)">T-25 (7e5 / 5mL)</button>
+    <button class="preset-btn" onclick="applyPreset(2e6, 12.0)">T-75 (2e6 / 12mL)</button>
+    <button class="preset-btn" onclick="applyPreset(5e6, 30.0)">T-175 (5e6 / 30mL)</button>
+  </div>
+
+  <div class="input-group">
+    <label>Current Stock Concentration</label>
+    <div class="sci-input">
+      <input type="number" id="stockBase" value="2.0" step="0.1" min="0" oninput="calculate()" />
+      <span class="sci-notation">× 10 ^</span>
+      <input type="number" id="stockExp" value="5" step="1" oninput="calculate()" style="max-width: 80px;" />
+      <span class="sci-notation">cells / mL</span>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="input-group">
+      <label>Target Cells Needed</label>
+      <div class="sci-input">
+        <input type="number" id="targetBase" value="1.0" step="0.1" min="0" oninput="calculate()" />
+        <span class="sci-notation">× 10 ^</span>
+        <input type="number" id="targetExp" value="6" step="1" oninput="calculate()" style="max-width: 70px;" />
+      </div>
+    </div>
+    <div class="input-group">
+      <label>Target Final Volume (mL)</label>
+      <input type="number" id="finalVol" value="10.0" step="0.5" min="0.1" oninput="calculate()" />
+    </div>
+  </div>
+
+  <div class="results-card">
+    <div class="result-row">
+      <span class="result-label">Cell Suspension to Transfer:</span>
+      <span class="result-val" id="suspensionVolDisplay">5.00 mL</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Fresh Media to Add:</span>
+      <span class="result-val" id="mediaVolDisplay">5.00 mL</span>
+    </div>
+    <div id="statusBox" class="status-msg"></div>
+    <div class="recipe" id="recipeSummary"></div>
+  </div>
+</div>
+
+<script>
+  function calculate() {
+    const stockBase = parseFloat(document.getElementById('stockBase').value) || 0;
+    const stockExp = parseFloat(document.getElementById('stockExp').value) || 0;
+    const targetBase = parseFloat(document.getElementById('targetBase').value) || 0;
+    const targetExp = parseFloat(document.getElementById('targetExp').value) || 0;
+    const finalVol = parseFloat(document.getElementById('finalVol').value) || 0;
+
+    const statusBox = document.getElementById('statusBox');
+    const suspDisplay = document.getElementById('suspensionVolDisplay');
+    const mediaDisplay = document.getElementById('mediaVolDisplay');
+    const recipe = document.getElementById('recipeSummary');
+
+    statusBox.className = 'status-msg';
+
+    const stockConc = stockBase * Math.pow(10, stockExp);
+    const targetCells = targetBase * Math.pow(10, targetExp);
+
+    if (stockConc <= 0 || targetCells <= 0 || finalVol <= 0) {
+      suspDisplay.innerText = "--";
+      mediaDisplay.innerText = "--";
+      recipe.innerText = "Please provide valid non-zero values.";
+      return;
+    }
+
+    // Required cell suspension volume in mL
+    const vSusp = targetCells / stockConc;
+    const vMedia = finalVol - vSusp;
+
+    // Formatting helpers
+    const formatVol = (val) => {
+      if (val < 1.0) {
+        return (val * 1000).toFixed(1) + " µL";
+      }
+      return val.toFixed(2) + " mL";
+    };
+
+    suspDisplay.innerText = formatVol(vSusp);
+    mediaDisplay.innerText = vMedia >= 0 ? formatVol(vMedia) : "0 mL";
+
+    if (vSusp > finalVol) {
+      statusBox.classList.add('error');
+      statusBox.innerText = `Insufficient volume: Required stock volume (${formatVol(vSusp)}) exceeds target vessel volume (${finalVol} mL). Pellet cells down to concentrate, or increase final volume.`;
+      recipe.innerHTML = `<strong>Action required:</strong> Concentration step needed before seeding.`;
+    } else if (vSusp === finalVol) {
+      statusBox.classList.add('warn');
+      statusBox.innerText = "Notice: The required cell volume equals your target working volume. No fresh media will be added.";
+      recipe.innerHTML = `Transfer <strong>${formatVol(vSusp)}</strong> directly into your vessel.`;
+    } else {
+      recipe.innerHTML = `Pipette <strong>${formatVol(vMedia)}</strong> of fresh media and <strong>${formatVol(vSusp)}</strong> of cell suspension into your vessel to hit <strong>${targetBase} × 10<sup>${targetExp}</sup></strong> cells at <strong>${finalVol} mL</strong>.`;
+    }
+  }
+
+  function applyPreset(cells, vol) {
+    const exp = Math.floor(Math.log10(cells));
+    const base = cells / Math.pow(10, exp);
+
+    document.getElementById('targetBase').value = base.toFixed(1);
+    document.getElementById('targetExp').value = exp;
+    document.getElementById('finalVol').value = vol.toFixed(1);
+    calculate();
+  }
+
+  // Initial execution on load
+  calculate();
+</script>
+
+</body>
+</html>
